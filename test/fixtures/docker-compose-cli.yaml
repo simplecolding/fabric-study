@@ -1,0 +1,151 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2.4'
+
+volumes:
+  orderer1.example.com:
+  orderer2.example.com:
+  orderer3.example.com:
+  peer0.org1.example.com:
+  peer0.org2.example.com:
+  peer0.org3.example.com:
+  couchdb.org1.example.com:
+
+networks:
+  test:
+    name: my-network_test
+
+services:
+
+  orderer1.example.com:
+    container_name: orderer1.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: orderer1.example.com
+    volumes:
+      - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./crypto-config/ordererOrganizations/example.com/orderers/orderer1.example.com/msp:/var/hyperledger/orderer/msp
+      - ./crypto-config/ordererOrganizations/example.com/orderers/orderer1.example.com/tls:/var/hyperledger/orderer/tls
+      - orderer1.example.com:/var/hyperledger/production/orderer
+    ports:
+      - 7050:7050
+      - 7053:7053
+    networks:
+      - test
+
+  orderer2.example.com:
+    container_name: orderer2.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: orderer2.example.com
+    volumes:
+      - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./crypto-config/ordererOrganizations/example.com/orderers/orderer2.example.com/msp:/var/hyperledger/orderer/msp
+      - ./crypto-config/ordererOrganizations/example.com/orderers/orderer2.example.com/tls:/var/hyperledger/orderer/tls
+      - orderer2.example.com:/var/hyperledger/production/orderer
+    ports:
+      - 8050:7050
+      - 8053:7053
+    networks:
+      - test
+
+  orderer3.example.com:
+    container_name: orderer3.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: orderer3.example.com
+    volumes:
+      - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./crypto-config/ordererOrganizations/example.com/orderers/orderer3.example.com/msp:/var/hyperledger/orderer/msp
+      - ./crypto-config/ordererOrganizations/example.com/orderers/orderer3.example.com/tls:/var/hyperledger/orderer/tls
+      - orderer3.example.com:/var/hyperledger/production/orderer
+    ports:
+      - 9050:7050
+      - 9053:7053
+    networks:
+      - test
+
+  couchdb.org1.example.com:
+    image: couchdb:3.1.1
+    container_name: couchdb.org1.example.com
+    environment:
+      - COUCHDB_USER=root
+      - COUCHDB_PASSWORD=root
+    ports:
+      #  TO access the UI
+      - 5984:5984
+    volumes:
+      - couchdb.org1.example.com:/opt/couchdb/data
+    networks:
+      - test
+
+  peer0.org1.example.com:
+    container_name: peer0.org1.example.com
+    depends_on:
+      - couchdb.org1.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.org1.example.com
+    ports:
+      - 7051:7051
+    networks:
+      - test
+
+  peer0.org2.example.com:
+    container_name: peer0.org2.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.org2.example.com
+    ports:
+      - 8051:7051
+    networks:
+      - test
+
+  peer0.org3.example.com:
+    container_name: peer0.org3.example.com
+    extends:
+      file: base/docker-compose-base.yaml
+      service: peer0.org3.example.com
+    ports:
+      - 9051:7051
+    networks:
+      - test
+      
+  cli:
+    container_name: cli
+    image: hyperledger/fabric-tools:latest
+    tty: true
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_REER_ID=cli
+      - CORE_PEER_ADDRESS=peer0.org1.example.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+      #- FABRIC_LOGGING_ls
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/organizations
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+        - ./chaincode/go:/opt/gopath/src/github.com/hyperledger/fabric-cluster/chaincode/go
+    depends_on:
+      - orderer1.example.com
+      - orderer2.example.com
+      - orderer3.example.com
+      - peer0.org1.example.com
+      - peer0.org2.example.com
+      - peer0.org3.example.com
+      # - peer1.org2.example.com
+    networks:
+      - test

@@ -6,6 +6,8 @@ sudo yes y|docker volume prune
 sudo yes y|docker system prune
 sudo rm -rf ./channel-artifacts
 sudo rm -rf ./crypto-config
+sudo rm -rf mychannel.block
+sudo rm -rf sacc.tar.gz
 cryptogen generate --config=crypto-config.yaml
 
 configtxgen -profile GenesisChannel -outputBlock ./channel-artifacts/genesis.block -channelID  fabric-channel

@@ -22,16 +22,32 @@ const (
 var App sdkInit.Application
 
 func main() {
-	// org1 := []*sdkInit.OrgInfo{
-	// 	{
-	// 		OrgAdminUser:  "Admin",
-	// 		OrgName:       "Org1",
-	// 		OrgMspId:      "Org1MSP",
-	// 		OrgUser:       "User1",
-	// 		OrgPeerNum:    1,
-	// 		OrgAnchorFile: "/home/demo/go/src/test/fixtures/channel-artifacts/Org1MSPanchors.tx",
-	// 	},
-	// }
+	org := []*sdkInit.OrgInfo{
+		{
+			OrgAdminUser:  "Admin",
+			OrgName:       "Org1",
+			OrgMspId:      "Org1MSP",
+			OrgUser:       "User1",
+			OrgPeerNum:    1,
+			OrgAnchorFile: "/home/demo/go/src/test/fixtures/channel-artifacts/Org1MSPanchors.tx",
+		},
+		{
+			OrgAdminUser:  "Admin",
+			OrgName:       "Org2",
+			OrgMspId:      "Org2MSP",
+			OrgUser:       "User1",
+			OrgPeerNum:    1,
+			OrgAnchorFile: "/home/demo/go/src/test/fixtures/channel-artifacts/Org2MSPanchors.tx",
+		},
+		{
+			OrgAdminUser:  "Admin",
+			OrgName:       "Org3",
+			OrgMspId:      "Org3MSP",
+			OrgUser:       "User1",
+			OrgPeerNum:    1,
+			OrgAnchorFile: "/home/demo/go/src/test/fixtures/channel-artifacts/Org3MSPanchors.tx",
+		},
+	}
 	org2 := []*sdkInit.OrgInfo{
 		{
 			OrgAdminUser:  "Admin",
@@ -44,17 +60,17 @@ func main() {
 	}
 
 	// init sdk env info
-	// info1 := sdkInit.SdkEnvInfo{
-	// 	ChannelID:        "mychannel",
-	// 	ChannelConfig:    "/home/demo/go/src/test/fixtures/channel-artifacts/channel.tx",
-	// 	Orgs:             org1,
-	// 	OrdererAdminUser: "Admin",
-	// 	OrdererOrgName:   "OrdererOrg",
-	// 	OrdererEndpoint:  "orderer1.example.com",
-	// 	ChaincodeID:      cc_name,
-	// 	ChaincodePath:    "/home/demo/go/src/test/chaincode/",
-	// 	ChaincodeVersion: cc_version,
-	// }
+	info := sdkInit.SdkEnvInfo{
+		ChannelID:        "mychannel",
+		ChannelConfig:    "/home/demo/go/src/test/fixtures/channel-artifacts/channel.tx",
+		Orgs:             org,
+		OrdererAdminUser: "Admin",
+		OrdererOrgName:   "OrdererOrg",
+		OrdererEndpoint:  "orderer1.example.com",
+		ChaincodeID:      cc_name,
+		ChaincodePath:    "/home/demo/go/src/test/chaincode/",
+		ChaincodeVersion: cc_version,
+	}
 	info2 := sdkInit.SdkEnvInfo{
 		ChannelID:        "mychannel",
 		ChannelConfig:    "/home/demo/go/src/test/fixtures/channel-artifacts/channel.tx",
@@ -66,23 +82,29 @@ func main() {
 		ChaincodePath:    "/home/demo/go/src/test/chaincode/",
 		ChaincodeVersion: cc_version,
 	}
-	// fmt.Println(info1)
+	fmt.Println(info2)
 	// sdk setup
-	//sdk1 := newClient("config-org1.yaml", &info1)
-	sdk2 := newClient("config-org2.yaml", &info2)
+	sdk := newClient("config-org1.yaml", &info)
+	// sdk2 := newClient("config-org2.yaml", &info2)
 	//defer sdk1.Close()
-
 	// create channel and join
-	// if err := sdkInit.CreateAndJoinChannel(&info1); err != nil {
-	// 	fmt.Printf(">> Create channel and join error:\n %v", err)
-	// 	os.Exit(-1)
-	// }
-
-	if err := sdkInit.CreateAndJoinChannel(&info2); err != nil {
+	if err := sdkInit.CreateAndJoinChannel(&info); err != nil {
 		fmt.Printf(">> Create channel and join error:\n %v", err)
 		os.Exit(-1)
 	}
-	defer sdk2.Close()
+
+	// if err := sdkInit.CreateAndJoinChannel(&info2); err != nil {
+	// 	fmt.Printf(">> Create channel and join error:\n %v", err)
+	// 	os.Exit(-1)
+	// }
+	defer sdk.Close()
+	// defer sdk2.Close()
+
+	// create chaincode lifecycle
+	if err := sdkInit.CreateCCLifecycle(&info, 1, false, sdk); err != nil {
+		fmt.Println(">> create chaincode lifecycle error: %v", err)
+		os.Exit(-1)
+	}
 }
 func newClient(config string, info *sdkInit.SdkEnvInfo) *fabsdk.FabricSDK {
 	sdk, err := sdkInit.Setup(config, info)

@@ -3,6 +3,7 @@ package sdkInit
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	mb "github.com/hyperledger/fabric-protos-go/msp"
 	pb "github.com/hyperledger/fabric-protos-go/peer"
@@ -36,24 +37,23 @@ func Setup(configFile string, info *SdkEnvInfo) (*fabsdk.FabricSDK, error) {
 	}
 
 	// 为组织获得Client句柄和Context信息
-	// for _, org := range info.Orgs {
-	// 创建一个org组织的新的客户端的实例，直接保存到info中
-	org := info.Orgs[0]
-	org.orgMspClient, err = mspclient.New(sdk.Context(), mspclient.WithOrg(org.OrgName))
-	if err != nil {
-		return nil, err
-	}
-	orgContext := sdk.Context(fabsdk.WithUser(org.OrgAdminUser), fabsdk.WithOrg(org.OrgName)) // 获取上下文
-	org.OrgAdminClientContext = &orgContext                                                   // 存储
+	for _, org := range info.Orgs {
+		// 创建一个org组织的新的客户端的实例，直接保存到info中
+		org.orgMspClient, err = mspclient.New(sdk.Context(), mspclient.WithOrg(org.OrgName))
+		if err != nil {
+			return nil, err
+		}
+		orgContext := sdk.Context(fabsdk.WithUser(org.OrgAdminUser), fabsdk.WithOrg(org.OrgName)) // 获取上下文
+		org.OrgAdminClientContext = &orgContext                                                   // 存储
 
-	// New returns a resource management client instance.
-	// 获取一个资源管理器的实例
-	resMgmtClient, err := resmgmt.New(orgContext)
-	if err != nil {
-		return nil, fmt.Errorf("根据指定的资源管理客户端Context创建通道管理客户端失败: %v", err)
+		// New returns a resource management client instance.
+		// 获取一个资源管理器的实例
+		resMgmtClient, err := resmgmt.New(orgContext)
+		if err != nil {
+			return nil, fmt.Errorf("根据指定的资源管理客户端Context创建通道管理客户端失败: %v", err)
+		}
+		org.OrgResMgmt = resMgmtClient
 	}
-	org.OrgResMgmt = resMgmtClient
-	// }
 
 	// 为Orderer获得Context信息，获得order的上下文信息
 	ordererClientContext := sdk.Context(fabsdk.WithUser(info.OrdererAdminUser), fabsdk.WithOrg(info.OrdererOrgName))
@@ -62,13 +62,17 @@ func Setup(configFile string, info *SdkEnvInfo) (*fabsdk.FabricSDK, error) {
 }
 
 /**
- * @description:创建并加入通道
+ * @description:创建并加入通道,若检测到已经有该通道则直接返回
  * @param {*SdkEnvInfo} info 组织信息
  * @return {*} error信息
  * @author: Yan Jiang
  * @Date: 2021-10-06 20:06:30
  */
 func CreateAndJoinChannel(info *SdkEnvInfo) error {
+	if chenckChannelCreate(info) {
+		fmt.Println("通道以及创建且peer节点已经加入通道了")
+		return nil
+	}
 	fmt.Println(">> 开始创建通道......")
 	if len(info.Orgs) == 0 {
 		return fmt.Errorf("通道组织不能为空，请提供组织信息")
@@ -89,18 +93,15 @@ func CreateAndJoinChannel(info *SdkEnvInfo) error {
 	if err := createChannel(signIds, info); err != nil {
 		return fmt.Errorf("Create channel error: %v", err)
 	}
-
 	fmt.Println(">> 创建通道成功")
-
 	fmt.Println(">> 加入通道......")
-	// for i, org := range info.Orgs {
-	// fmt.Println(i, org)
-	// , resmgmt.WithOrdererEndpoint(info.OrdererEndpoint)
-	org := info.Orgs[0]
-	fmt.Println(org)
-	if err := org.OrgResMgmt.JoinChannel(info.ChannelID, resmgmt.WithRetry(retry.DefaultResMgmtOpts), resmgmt.WithOrdererEndpoint(info.OrdererEndpoint)); err != nil {
-		return fmt.Errorf("%s peers failed to JoinChannel: %v", org.OrgName, err)
-		// }
+	for i, org := range info.Orgs {
+		fmt.Println(i, org)
+		// , resmgmt.WithOrdererEndpoint(info.OrdererEndpoint)
+		fmt.Println(org)
+		if err := org.OrgResMgmt.JoinChannel(info.ChannelID, resmgmt.WithRetry(retry.DefaultResMgmtOpts), resmgmt.WithOrdererEndpoint(info.OrdererEndpoint)); err != nil {
+			return fmt.Errorf("%s peers failed to JoinChannel: %v", org.OrgName, err)
+		}
 	}
 	fmt.Println(">> 加入通道成功")
 
@@ -144,10 +145,10 @@ func createChannel(signIDs []msp.SigningIdentity, info *SdkEnvInfo) error {
 			ChannelConfigPath: org.OrgAnchorFile,
 			SigningIdentities: []msp.SigningIdentity{signIDs[i]}}
 
-		// if _, err = org.OrgResMgmt.SaveChannel(req, resmgmt.WithRetry(retry.DefaultResMgmtOpts), resmgmt.WithOrdererEndpoint("orderer1.example.com")); err != nil {
-		// 	return fmt.Errorf("SaveChannel for anchor org %s error: %v", org.OrgName, err)
-		// 	// fmt.Println("%该组织已加入通道，跳过该过程。", org.OrgName)
-		// }
+		if _, err = org.OrgResMgmt.SaveChannel(req, resmgmt.WithRetry(retry.DefaultResMgmtOpts), resmgmt.WithOrdererEndpoint("orderer1.example.com")); err != nil {
+			return fmt.Errorf("SaveChannel for anchor org %s error: %v", org.OrgName, err)
+			// fmt.Println("%该组织已加入通道，跳过该过程。", org.OrgName)
+		}
 	}
 	// pc := chenckChannelCreate(info)
 	// if pc {
@@ -159,29 +160,37 @@ func createChannel(signIDs []msp.SigningIdentity, info *SdkEnvInfo) error {
 }
 
 /**
- * @description: 检查是否已经加入此节点
+ * @description: 检查是否已经加入此节点，可以优化，最佳方法应该是直接判断orderer有没有生成该通道
  * @param {*SdkEnvInfo} info 组织信息
  * @return {*} 返回一个bool类型
  * @author: Yan Jiang
  * @Date: 2021-10-06 15:36:55
  */
 func chenckChannelCreate(info *SdkEnvInfo) bool {
-	org := info.Orgs[0]
-	orgPeers, err := DiscoverLocalPeers(*org.OrgAdminClientContext, org.OrgPeerNum)
-	if err != nil {
-		fmt.Errorf("DiscoverLocalPeers error: %v", err)
-	}
-	resp, err := org.OrgResMgmt.QueryChannels(resmgmt.WithTargets(orgPeers[0]))
-	if err != nil {
-		fmt.Println("IsJoinedChannel : failed to Query &gt;&gt;&gt; " + err.Error())
-		// return false, err
-	}
-	for _, chInfo := range resp.Channels {
-		fmt.Println("IsJoinedChannel : " + chInfo.ChannelId + " --- " + info.ChannelID)
-		if chInfo.ChannelId == info.ChannelID {
-			fmt.Println("该通道已经存在！！！！！！！！！！！！！！！！！！！！")
-			return true
+
+	// 遍历所有的组织
+	for _, org := range info.Orgs {
+		// 发现组织内的节点，可优化
+		orgPeers, err := DiscoverLocalPeers(*org.OrgAdminClientContext, org.OrgPeerNum)
+		if err != nil {
+			fmt.Errorf("DiscoverLocalPeers error: %v", err)
 		}
+		// 遍历组织下的peer节点
+		for _, peer := range orgPeers {
+			resp, err := org.OrgResMgmt.QueryChannels(resmgmt.WithTargets(peer))
+			if err != nil {
+				fmt.Println("IsJoinedChannel : failed to Query &gt;&gt;&gt; " + err.Error())
+			}
+			// 遍历该peer加入的所有通道
+			for _, chInfo := range resp.Channels {
+				fmt.Println("IsJoinedChannel : " + chInfo.ChannelId + " --- " + info.ChannelID)
+				if chInfo.ChannelId == info.ChannelID {
+					fmt.Println("该通道已经存在！！！！！！！！！！！！！！！！！！！！")
+					return true
+				}
+			}
+		}
+
 	}
 	fmt.Println("没有查询到该通道++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++>>>")
 	return false
@@ -216,10 +225,10 @@ func CreateCCLifecycle(info *SdkEnvInfo, sequence int64, upgrade bool, sdk *fabs
 		return fmt.Errorf("queryInstalled error: %v", err)
 	}
 	fmt.Println(">> 安装链码成功")
-
+	// 以下的函数开始有问题,你猜猜是什么问题
 	// Approve cc
 	fmt.Println(">> 组织认可智能合约定义......")
-	if err := approveCC(packageID, info.ChaincodeID, info.ChaincodeVersion, sequence, info.ChannelID, info.Orgs, info.OrdererEndpoint); err != nil {
+	if err := approveCC(packageID, info.ChaincodeID, info.ChaincodeVersion, sequence, info.ChannelID, info.Orgs, "orderer1.example.com"); err != nil {
 		return fmt.Errorf("approveCC error: %v", err)
 	}
 
@@ -236,8 +245,7 @@ func CreateCCLifecycle(info *SdkEnvInfo, sequence int64, upgrade bool, sdk *fabs
 	}
 	fmt.Println(">> 智能合约已经就绪")
 
-	// Commit cc
-	fmt.Println(">> 提交智能合约定义......")
+	// fmt.Println(">> 提交智能合约定义......")
 	if err := commitCC(info.ChaincodeID, info.ChaincodeVersion, sequence, info.ChannelID, info.Orgs, info.OrdererEndpoint); err != nil {
 		return fmt.Errorf("commitCC error: %v", err)
 	}
@@ -247,7 +255,8 @@ func CreateCCLifecycle(info *SdkEnvInfo, sequence int64, upgrade bool, sdk *fabs
 	}
 	fmt.Println(">> 智能合约定义提交完成")
 
-	// Init cc
+	time.Sleep(time.Duration(2) * time.Second)
+	// // Init cc
 	fmt.Println(">> 调用智能合约初始化方法......")
 	if err := initCC(info.ChaincodeID, upgrade, info.ChannelID, info.Orgs[0], sdk); err != nil {
 		return fmt.Errorf("initCC error: %v", err)
@@ -256,6 +265,15 @@ func CreateCCLifecycle(info *SdkEnvInfo, sequence int64, upgrade bool, sdk *fabs
 	return nil
 }
 
+/**
+ * @description: 打包链码
+ * @param {*} ccName 链码名称
+ * @param {*} ccVersion 链码版本
+ * @param {string} ccpath 链码路径
+ * @return {*}
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 15:25:27
+ */
 func packageCC(ccName, ccVersion, ccpath string) (string, []byte, error) {
 	label := ccName + "_" + ccVersion
 	desc := &lcpackager.Descriptor{
@@ -270,6 +288,15 @@ func packageCC(ccName, ccVersion, ccpath string) (string, []byte, error) {
 	return desc.Label, ccPkg, nil
 }
 
+/**
+ * @description: 安装链码
+ * @param {string} label 标签
+ * @param {[]byte} ccPkg 链码包
+ * @param {[]*OrgInfo} orgs 组织信息
+ * @return {*} 返回error
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 15:26:22
+ */
 func installCC(label string, ccPkg []byte, orgs []*OrgInfo) error {
 	installCCReq := resmgmt.LifecycleInstallCCRequest{
 		Label:   label,
@@ -291,6 +318,14 @@ func installCC(label string, ccPkg []byte, orgs []*OrgInfo) error {
 	return nil
 }
 
+/**
+ * @description: 获取已安装链码的package
+ * @param {string} packageID 打包ID
+ * @param {*OrgInfo} org 组织信息
+ * @return {*} 返回error
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 15:41:30
+ */
 func getInstalledCCPackage(packageID string, org *OrgInfo) error {
 	// use org1
 	orgPeers, err := DiscoverLocalPeers(*org.OrgAdminClientContext, 1)
@@ -325,6 +360,15 @@ func queryInstalled(packageID string, org *OrgInfo) error {
 	return nil
 }
 
+/**
+ * @description: 检查指定的链码包ID是否在该peer中安装
+ * @param {string} packageID 包ID
+ * @param {fab.Peer} peer peer节点
+ * @param {*resmgmt.Client} client 组织资源管理器
+ * @return {*} 返回一个bool类型和error
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 15:37:37
+ */
 func checkInstalled(packageID string, peer fab.Peer, client *resmgmt.Client) (bool, error) {
 	flag := false
 	resp1, err := client.LifecycleQueryInstalledCC(resmgmt.WithTargets(peer))
@@ -339,6 +383,19 @@ func checkInstalled(packageID string, peer fab.Peer, client *resmgmt.Client) (bo
 	return flag, nil
 }
 
+/**
+ * @description: 组织允许链码安装，通过for循环一次同意安装
+ * @param {string} packageID CC的包ID
+ * @param {*} ccName CC的名字
+ * @param {string} ccVersion CC的版本号
+ * @param {int64} sequence CC的序号
+ * @param {string} channelID 通道ID
+ * @param {[]*OrgInfo} orgs 组织信息（数组）
+ * @param {string} ordererEndpoint orderer节点的url
+ * @return {*} 返回错误信息
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 15:03:04
+ */
 func approveCC(packageID string, ccName, ccVersion string, sequence int64, channelID string, orgs []*OrgInfo, ordererEndpoint string) error {
 	mspIDs := []string{}
 	for _, org := range orgs {
@@ -363,7 +420,6 @@ func approveCC(packageID string, ccName, ccVersion string, sequence int64, chann
 		for _, p := range orgPeers {
 			fmt.Printf("	%s\n", p.URL())
 		}
-
 		if err != nil {
 			return fmt.Errorf("DiscoverLocalPeers error: %v", err)
 		}
@@ -374,6 +430,16 @@ func approveCC(packageID string, ccName, ccVersion string, sequence int64, chann
 	return nil
 }
 
+/**
+ * @description: 查询各组织是否批准链码安装
+ * @param {string} ccName CC名称
+ * @param {int64} sequence 序列号
+ * @param {string} channelID 通道名字
+ * @param {[]*OrgInfo} orgs 组织
+ * @return {*} 返回error
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 16:05:43
+ */
 func queryApprovedCC(ccName string, sequence int64, channelID string, orgs []*OrgInfo) error {
 	queryApprovedCCReq := resmgmt.LifecycleQueryApprovedCCRequest{
 		Name:     ccName,
@@ -385,7 +451,7 @@ func queryApprovedCC(ccName string, sequence int64, channelID string, orgs []*Or
 		if err != nil {
 			return fmt.Errorf("DiscoverLocalPeers error: %v", err)
 		}
-		// Query approve cc
+		// Query approve cc，这里是对组织中的所有节点都进行查询，真实的环境中可能无法执行这一步的操作
 		for _, p := range orgPeers {
 			resp, err := retry.NewInvoker(retry.New(retry.TestRetryOpts)).Invoke(
 				func() (interface{}, error) {
@@ -407,11 +473,24 @@ func queryApprovedCC(ccName string, sequence int64, channelID string, orgs []*Or
 	return nil
 }
 
+/**
+ * @description: 用json的方式输出组织对链码安装的状态
+ * @param {string} packageID 包ID
+ * @param {*} ccName CC名称
+ * @param {string} ccVersion CC版本
+ * @param {int64} sequence 序列号
+ * @param {string} channelID 通道ID
+ * @param {[]*OrgInfo} orgs 组织信息
+ * @return {*} 返回error信息
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 16:08:29
+ */
 func checkCCCommitReadiness(packageID string, ccName, ccVersion string, sequence int64, channelID string, orgs []*OrgInfo) error {
 	mspIds := []string{}
 	for _, org := range orgs {
 		mspIds = append(mspIds, org.OrgMspId)
 	}
+	// 确定链码确认的策略
 	ccPolicy := policydsl.SignedByNOutOfGivenRole(int32(len(mspIds)), mb.MSPRole_MEMBER, mspIds)
 	req := resmgmt.LifecycleCheckCCCommitReadinessRequest{
 		Name:    ccName,
@@ -439,6 +518,7 @@ func checkCCCommitReadiness(packageID string, ccName, ccVersion string, sequence
 					flag := true
 					// 这里挺让人费解的###################################################################
 					// ################################################################################
+					// 其实还好。。。
 					for _, r := range resp1.Approvals {
 						flag = flag && r
 					}
@@ -460,6 +540,18 @@ func checkCCCommitReadiness(packageID string, ccName, ccVersion string, sequence
 	return nil
 }
 
+/**
+ * @description: 提交CC的安装
+ * @param {*} ccName CC名称
+ * @param {string} ccVersion CC版本
+ * @param {int64} sequence 序列号
+ * @param {string} channelID 通道名称
+ * @param {[]*OrgInfo} orgs 组织信息
+ * @param {string} ordererEndpoint 指定orderer节点
+ * @return {*}
+ * @author: Yan Jiang
+ * @Date: 2021-10-07 16:25:39
+ */
 func commitCC(ccName, ccVersion string, sequence int64, channelID string, orgs []*OrgInfo, ordererEndpoint string) error {
 	mspIDs := []string{}
 	for _, org := range orgs {
@@ -476,6 +568,9 @@ func commitCC(ccName, ccVersion string, sequence int64, channelID string, orgs [
 		SignaturePolicy:   ccPolicy,
 		InitRequired:      true,
 	}
+	fmt.Println("cuowude df ")
+	// 这里每个组织同意有延时,设置一个sleep函数来等待所有组织的结果
+	time.Sleep(time.Duration(2) * time.Second)
 	// 只需要指定一个组织提交就行
 	_, err := orgs[0].OrgResMgmt.LifecycleCommitCC(channelID, req, resmgmt.WithOrdererEndpoint(ordererEndpoint), resmgmt.WithRetry(retry.DefaultResMgmtOpts))
 	if err != nil {

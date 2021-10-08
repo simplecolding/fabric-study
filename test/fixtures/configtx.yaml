@@ -43,8 +43,8 @@ Organizations:
 
         OrdererEndpoints:
             - orderer1.example.com:7050
-            - orderer2.example.com:7050
-            - orderer3.example.com:7050
+            - orderer2.example.com:8050
+            - orderer3.example.com:9050
 
     - &Org1
         # DefaultOrg defines the organization which is used in the sampleconfig
@@ -103,7 +103,7 @@ Organizations:
                 Rule: "OR('Org2MSP.peer')"
         AnchorPeers:
             - Host: peer0.org2.example.com
-              Port: 7051
+              Port: 8051
     - &Org3
         # DefaultOrg defines the organization which is used in the sampleconfig
         # of the fabric.git development environment
@@ -132,7 +132,7 @@ Organizations:
                 Rule: "OR('Org3MSP.peer')"
         AnchorPeers:
             - Host: peer0.org3.example.com
-              Port: 7051       
+              Port: 9051       
 ################################################################################
 #
 #   SECTION: Capabilities
@@ -251,17 +251,17 @@ Orderer: &OrdererDefaults
           ClientTLSCert: crypto-config/ordererOrganizations/example.com/orderers/orderer1.example.com/tls/server.crt
           ServerTLSCert: crypto-config/ordererOrganizations/example.com/orderers/orderer1.example.com/tls/server.crt
         - Host: orderer2.example.com
-          Port: 7050
+          Port: 8050
           ClientTLSCert: crypto-config/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt
           ServerTLSCert: crypto-config/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt
         - Host: orderer3.example.com
-          Port: 7050
+          Port: 9050
           ClientTLSCert: crypto-config/ordererOrganizations/example.com/orderers/orderer3.example.com/tls/server.crt
           ServerTLSCert: crypto-config/ordererOrganizations/example.com/orderers/orderer3.example.com/tls/server.crt
     Addresses:
       - orderer1.example.com:7050
-      - orderer2.example.com:7050
-      - orderer3.example.com:7050
+      - orderer2.example.com:8050
+      - orderer3.example.com:9050
     # Batch Timeout: The amount of time to wait before creating a batch
     BatchTimeout: 2s
 

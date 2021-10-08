@@ -158,7 +158,7 @@ orderers:
 # 可以定义多个，目前只定义一个
   orderer1.example.com:
     # [Optional] Default: Infer from hostname
-    url: grpcs://orderer1.example.com:7050
+    url: orderer1.example.com:7050
 
     # these are standard properties defined by the gRPC library
     # they will be passed in as-is to gRPC client constructor
@@ -176,7 +176,7 @@ orderers:
 
     tlsCACerts:
       # Certificate location absolute path
-      path: /home/demo/go/src/test/fixtures/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+      path: /home/demo/go/src/test/fixtures/crypto-config/ordererOrganizations/example.com/orderers/orderer1.example.com/tls/ca.crt
 
 #
 # List of peers to send various requests to, including endorsement, query
@@ -188,7 +188,7 @@ peers:
   peer0.org1.example.com:
     # this URL is used to send endorsement and query requests
     # [Optional] Default: Infer from hostname
-    url: grpcs://peer0.org1.example.com:7051
+    url: peer0.org1.example.com:7051
     grpcOptions:
       ssl-target-name-override: peer0.org1.example.com
       # These parameters should be set in coordination with the keepalive policy on the server,
@@ -209,7 +209,7 @@ peers:
 
 
   peer0.org2.example.com:
-    url: grpcs://peer0.org2.example.com:8051
+    url: peer0.org2.example.com:8051
     #grpcOptions:
     #  ssl-target-name-override: peer0.org1.example.com
     grpcOptions:
@@ -228,7 +228,7 @@ peers:
 
 
   peer0.org3.example.com:
-    url: grpcs://peer0.org3.example.com:9051
+    url: peer0.org3.example.com:9051
     #grpcOptions:
     #  ssl-target-name-override: peer0.org1.example.com
     grpcOptions:
@@ -269,6 +269,13 @@ entityMatchers:
       urlSubstitutionExp: ${1}.org3.example.com:${2}
       sslTargetOverrideUrlSubstitutionExp: ${1}.org3.example.com
       mappedHost: peer0.org2.example.com
+  orderer:
+    - pattern: (\w*)orderer1.example.com(\w*)
+      urlSubstitutionExp: localhost:7050
+      sslTargetOverrideUrlSubstitutionExp: orderer1.example.com
+      mappedHost: orderer1.example.com
+      
+
 
       
 

@@ -6,8 +6,7 @@ services:
         #Generic peer variables
         - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
         - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=my-network_test
-        - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
-        - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+        
         - FABRIC_LOGGING_SPEC=INFO
 
         - CORE_PEER_MSPCONFIGPATH=/var/hyperledger/fabric/msp

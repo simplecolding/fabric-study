@@ -25,6 +25,9 @@ services:
     extends:
       file: base/docker-compose-base.yaml
       service: orderer1.example.com
+    environment:
+      - ORDERER_ADMIN_LISTENADDRESS=0.0.0.0:7053
+      - ORDERER_GENERAL_LISTENPORT=7050
     volumes:
       - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
       - ./crypto-config/ordererOrganizations/example.com/orderers/orderer1.example.com/msp:/var/hyperledger/orderer/msp
@@ -41,14 +44,17 @@ services:
     extends:
       file: base/docker-compose-base.yaml
       service: orderer2.example.com
+    environment:
+      - ORDERER_ADMIN_LISTENADDRESS=0.0.0.0:8053
+      - ORDERER_GENERAL_LISTENPORT=8050
     volumes:
       - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
       - ./crypto-config/ordererOrganizations/example.com/orderers/orderer2.example.com/msp:/var/hyperledger/orderer/msp
       - ./crypto-config/ordererOrganizations/example.com/orderers/orderer2.example.com/tls:/var/hyperledger/orderer/tls
       - orderer2.example.com:/var/hyperledger/production/orderer
     ports:
-      - 8050:7050
-      - 8053:7053
+      - 8050:8050
+      - 8053:8053
     networks:
       - test
 
@@ -57,14 +63,17 @@ services:
     extends:
       file: base/docker-compose-base.yaml
       service: orderer3.example.com
+    environment:
+      - ORDERER_ADMIN_LISTENADDRESS=0.0.0.0:9053
+      - ORDERER_GENERAL_LISTENPORT=9050
     volumes:
       - ./channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
       - ./crypto-config/ordererOrganizations/example.com/orderers/orderer3.example.com/msp:/var/hyperledger/orderer/msp
       - ./crypto-config/ordererOrganizations/example.com/orderers/orderer3.example.com/tls:/var/hyperledger/orderer/tls
       - orderer3.example.com:/var/hyperledger/production/orderer
     ports:
-      - 9050:7050
-      - 9053:7053
+      - 9050:9050
+      - 9053:9053
     networks:
       - test
 
@@ -100,7 +109,7 @@ services:
       file: base/docker-compose-base.yaml
       service: peer0.org2.example.com
     ports:
-      - 8051:7051
+      - 8051:8051
     networks:
       - test
 
@@ -110,7 +119,7 @@ services:
       file: base/docker-compose-base.yaml
       service: peer0.org3.example.com
     ports:
-      - 9051:7051
+      - 9051:9051
     networks:
       - test
       
